@@ -1,0 +1,32 @@
+{
+  "name": "honu-saas-cli",
+  "version": "1.0.0",
+  "description": "A CLI tool to help you manage your Honu SaaS projects",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "honu-saas-cli": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["cli", "saas", "components", "themes", "react", "nextjs", "ui", "honu"],
+  "author": "Honu AI",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/honu-ai/honu-saas-cli.git"
+  },
+  "homepage": "https://github.com/honu-ai/honu-saas-cli#readme",
+  "bugs": {
+    "url": "https://github.com/honu-ai/honu-saas-cli/issues"
+  },
+  "packageManager": "pnpm@10.5.2",
+  "dependencies": {
+    "chalk": "^5.6.0",
+    "commander": "^14.0.0",
+    "fs-extra": "^11.3.1",
+    "node-fetch": "^3.3.2",
+    "ora": "^8.2.0"
+  }
+}
