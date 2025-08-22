@@ -10,6 +10,7 @@ A command-line tool to easily add beautiful, pre-built SaaS components to your p
 - ✨ **Beautiful CLI**: Interactive progress indicators and colorful output
 - 🛡️ **Error Handling**: Graceful handling of missing components or network issues
 - 📦 **Zero Config**: Works out of the box with sensible defaults
+- 🚀 **No Rate Limits**: Uses GitHub raw URLs for unlimited downloads
 
 ## Installation
 
@@ -29,6 +30,11 @@ npx honu-saas-cli add <theme-name>
 ```
 
 ## Usage
+
+### List Available Themes
+```bash
+honu-saas-cli list
+```
 
 ### Basic Usage
 ```bash
@@ -126,17 +132,26 @@ Visit the [honu-saas-themes repository](https://github.com/honu-ai/honu-saas-the
 ## How It Works
 
 1. **Fetches components** from `honu-ai/honu-saas-themes/components/{theme-name}/{component-type}/`
-2. **Downloads files** using GitHub's API
+2. **Downloads files** using GitHub's raw file URLs (no rate limits)
 3. **Organizes components** by type in your local `components/` directory
 4. **Copies app files** to your `app/` directory
 5. **Overwrites existing files** to ensure you get the latest version
 
 ## Error Handling
 
-- **Missing theme**: Clear error message if the theme doesn't exist
+- **Missing theme**: Clear error message if the theme doesn't exist  
 - **Missing components**: Warnings for individual missing component types
-- **Network issues**: Graceful handling of API failures
+- **Network issues**: Graceful handling of download failures
 - **File system errors**: Proper error reporting for write failures
+- **No rate limits**: Uses GitHub raw URLs for unlimited downloads
+
+### Troubleshooting
+
+**Problem**: "Theme not found" error  
+**Solution**: Run `honu-saas-cli list` to see available themes
+
+**Problem**: No files downloaded  
+**Solution**: Check your internet connection and verify the theme exists
 
 ## Contributing
 

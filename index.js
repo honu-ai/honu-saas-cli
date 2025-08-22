@@ -9,7 +9,31 @@ import path from 'path';
 
 const program = new Command();
 
-const GITHUB_REPO_API = 'https://api.github.com/repos/honu-ai/honu-saas-themes/contents/components';
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/honu-ai/honu-saas-themes/main/components';
+
+// Available themes (manually maintained list)
+const AVAILABLE_THEMES = ['minimal', 'corporate', 'playful', 'friendly', 'technical'];
+
+// Convert kebab-case to PascalCase for component names
+const toPascalCase = (str) => {
+  return str.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('');
+};
+
+// Component files following strict structure
+const getComponentFiles = (themeName, componentType) => {
+  const componentName = toPascalCase(componentType);
+  
+  const componentFiles = [
+    'index.tsx',
+    `${componentName}.tsx`,
+    `${componentName}.stories.tsx`
+  ];
+  
+  return componentFiles.map(filename => ({
+    name: filename,
+    url: `${GITHUB_RAW_BASE}/${themeName}/${componentType}/${filename}`
+  }));
+};
 
 // Define the component types to copy
 const COMPONENT_TYPES = ['hero-section', 'problem-section', 'solution-section', 'benefits-section', 'faq-section', 'cta-section', 'footer'];
@@ -17,10 +41,33 @@ const COMPONENT_TYPES = ['hero-section', 'problem-section', 'solution-section', 
 // Define files to copy to the app directory
 const APP_FILES = ['globals.css', 'layout.tsx'];
 
+const PAGE_FILES = ['page.tsx']
+
+program
+  .command('list')
+  .description('List all available themes')
+  .action(() => {
+    console.log(chalk.green('Available themes:'));
+    AVAILABLE_THEMES.forEach(theme => {
+      console.log(chalk.cyan(`  • ${theme}`));
+    });
+    console.log(chalk.yellow(`\nUse: ${chalk.bold('honu-saas-cli add <theme-name>')} to install a theme`));
+  });
+
 program
   .command('add <theme-name>')
   .description('Add a new theme by copying its components into your project')
   .action(async (themeName) => {
+    // Validate theme exists
+    if (!AVAILABLE_THEMES.includes(themeName)) {
+      console.log(chalk.red(`Error: Theme '${themeName}' not found.`));
+      console.log(chalk.yellow('Available themes:'));
+      AVAILABLE_THEMES.forEach(theme => {
+        console.log(chalk.cyan(`  • ${theme}`));
+      });
+      process.exit(1);
+    }
+
     const spinner = ora(chalk.blue(`Fetching theme '${themeName}'...`)).start();
 
     try {
@@ -34,54 +81,89 @@ program
         // Create destination path for this component type
         const destPath = path.join(process.cwd(), 'components', componentType);
         
-        // Get the list of files for this component type from the GitHub API
-        const response = await fetch(`${GITHUB_REPO_API}/${themeName}/${componentType}`);
-        if (!response.ok) {
-          console.log(chalk.yellow(`  Warning: Component type '${componentType}' not found for theme '${themeName}'`));
-          continue;
-        }
-        const files = await response.json();
-
+        // Get potential files for this component type
+        const potentialFiles = getComponentFiles(themeName, componentType);
+        
         spinner.text = `Installing ${componentType} components...`;
 
-        // 2. Ensure the destination directory exists
+        // Ensure the destination directory exists
         await fse.ensureDir(destPath);
 
-        // 3. Download and write each file
-        for (const file of files) {
-          if (file.type === 'file') {
-            const fileResponse = await fetch(file.download_url);
-            const fileContent = await fileResponse.text();
-            await fse.writeFile(path.join(destPath, file.name), fileContent);
-            totalFiles++;
+        let componentFilesFound = 0;
+        
+        // Try to download each potential file
+        for (const file of potentialFiles) {
+          try {
+            const response = await fetch(file.url);
+            if (response.ok) {
+              const fileContent = await response.text();
+              await fse.writeFile(path.join(destPath, file.name), fileContent);
+              totalFiles++;
+              componentFilesFound++;
+            }
+            // If 404, just skip silently (file doesn't exist)
+          } catch (error) {
+            // Network error - skip silently
+            continue;
           }
         }
 
-        installedComponents.push(`${componentType} → ${destPath}`);
+        if (componentFilesFound > 0) {
+          installedComponents.push(`${componentType} → ${destPath}`);
+        } else {
+          console.log(chalk.yellow(`  Warning: No files found for component '${componentType}' in theme '${themeName}'`));
+        }
       }
 
       // Copy app files (globals.css, layout.tsx) to ./app directory
       spinner.text = `Fetching theme app files...`;
       
-      // Get the list of files in the theme root directory
-      const themeResponse = await fetch(`${GITHUB_REPO_API}/${themeName}`);
-      if (themeResponse.ok) {
-        const themeFiles = await themeResponse.json();
-        const appDestPath = path.join(process.cwd(), 'app');
-        
-        // Ensure the app directory exists
-        await fse.ensureDir(appDestPath);
-        
-        for (const appFile of APP_FILES) {
-          const foundFile = themeFiles.find(file => file.name === appFile && file.type === 'file');
-          if (foundFile) {
-            spinner.text = `Installing ${appFile}...`;
-            const fileResponse = await fetch(foundFile.download_url);
-            const fileContent = await fileResponse.text();
+      const appDestPath = path.join(process.cwd(), 'app');
+      
+      // Ensure the app directory exists
+      await fse.ensureDir(appDestPath);
+      
+      for (const appFile of APP_FILES) {
+        try {
+          const appFileUrl = `${GITHUB_RAW_BASE}/${themeName}/${appFile}`;
+          spinner.text = `Installing ${appFile}...`;
+          
+          const response = await fetch(appFileUrl);
+          if (response.ok) {
+            const fileContent = await response.text();
             await fse.writeFile(path.join(appDestPath, appFile), fileContent);
             totalFiles++;
             installedComponents.push(`${appFile} → ${appDestPath}`);
           }
+        } catch (error) {
+          // Skip if file doesn't exist or network error
+          continue;
+        }
+      }
+
+      // Copy page file to ./app/(dashboard)/page.tsx
+      spinner.text = `Fetching theme page file...`;
+      
+      const dashboardDestPath = path.join(process.cwd(), 'app', '(dashboard)');
+      
+      // Ensure the app/(dashboard) directory exists
+      await fse.ensureDir(dashboardDestPath);
+      
+      for (const pageFile of PAGE_FILES) {
+        try {
+          const pageFileUrl = `${GITHUB_RAW_BASE}/${themeName}/${pageFile}`;
+          spinner.text = `Installing dashboard ${pageFile}...`;
+          
+          const response = await fetch(pageFileUrl);
+          if (response.ok) {
+            const fileContent = await response.text();
+            await fse.writeFile(path.join(dashboardDestPath, pageFile), fileContent);
+            totalFiles++;
+            installedComponents.push(`${pageFile} → ${dashboardDestPath}`);
+          }
+        } catch (error) {
+          // Skip if file doesn't exist or network error
+          continue;
         }
       }
 
